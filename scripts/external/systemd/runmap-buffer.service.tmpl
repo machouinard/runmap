@@ -1,0 +1,22 @@
+# Template systemd unit for external buffer builder
+# Copy to /etc/systemd/system/runmap-buffer.service and edit paths
+
+[Unit]
+Description=RunMap external buffer builder (builds coverage_buffer_external)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Update this path to where you cloned the repo on the droplet
+WorkingDirectory=/opt/runmap
+# Environment file with PG creds and tuning (create at /etc/runmap/runmap-buffer.env)
+EnvironmentFile=/etc/runmap/runmap-buffer.env
+# Create and use a virtualenv under /opt/runmap/venv (optional)
+ExecStartPre=/usr/bin/env bash -lc '[ -d venv ] || python3 -m venv venv && source venv/bin/activate && pip install -q -r scripts/external/requirements.txt'
+ExecStart=/usr/bin/env bash -lc 'source venv/bin/activate && python scripts/external/build_fast_buffer.py'
+# 30m should be plenty; adjust if needed
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

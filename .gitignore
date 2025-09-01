@@ -1,0 +1,6 @@
+.DS_Store
+.env
+/private
+/info
+/WorkOutDoors
+AGENTS.md

@@ -1,0 +1,46 @@
+name: Build and publish PMTiles
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # hourly
+  workflow_dispatch: {}
+
+jobs:
+  tiles:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (GDAL, tippecanoe, psql)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin tippecanoe postgresql-client curl
+
+      - name: Create .env for scripts
+        run: |
+          cat > .env <<EOF
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PGHOST=${{ secrets.PGHOST }}
+          PGPORT=${{ secrets.PGPORT }}
+          PGDATABASE=${{ secrets.PGDATABASE }}
+          PGUSER=${{ secrets.PGUSER }}
+          PGPASSWORD=${{ secrets.PGPASSWORD }}
+          DEST=${{ secrets.DEST }}
+          EOF
+
+      - name: Full refresh (no timeout)
+        run: ./scripts/refresh_all.sh all
+
+      - name: Export, build, and upload PMTiles
+        env:
+          REFRESH: none
+        run: ./scripts/export_tiles.sh
+
+      - name: Print tiles URL
+        run: |
+          echo "${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST}"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DEST: ${{ secrets.DEST }}

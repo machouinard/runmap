@@ -1,0 +1,13 @@
+# Template systemd timer for external buffer builder
+# Copy to /etc/systemd/system/runmap-buffer.timer
+
+[Unit]
+Description=Schedule RunMap external buffer builder
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+Unit=runmap-buffer.service
+
+[Install]
+WantedBy=timers.target
