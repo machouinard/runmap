@@ -59,17 +59,22 @@ set -e
 echo "[3/6] Export coverage_buffer_current → GeoJSON"
 ogr2ogr -f GeoJSON "$WORK/coverage_buffer.geojson" "$CONN" -sql "SELECT gid,geom FROM runmap.coverage_buffer_current" -nln coverage_buffer
  
-# 4) Build PMTiles with tippecanoe
-echo "[4/6] Build PMTiles with tippecanoe"
+# 4) Build MBTiles then convert to PMTiles
+echo "[4/6] Build MBTiles then PMTiles"
+# streets_unrun
 # Keep all features: do not drop densest; allow big tiles for fidelity on dense grids
-tippecanoe -o "$WORK/streets_unrun.pmtiles" -l streets_unrun -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/streets_unrun.geojson" --force
+tippecanoe -o "$WORK/streets_unrun.mbtiles" -l streets_unrun -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/streets_unrun.geojson" --force
+pmtiles convert "$WORK/streets_unrun.mbtiles" "$WORK/streets_unrun.pmtiles"
+# runs (optional)
 if [ $RUNS_STATUS -eq 0 ]; then
-  tippecanoe -o "$WORK/runs_collect.pmtiles" -l runs_collect -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/runs_collect.geojson" --force
+  tippecanoe -o "$WORK/runs_collect.mbtiles" -l runs_collect -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/runs_collect.geojson" --force
+  pmtiles convert "$WORK/runs_collect.mbtiles" "$WORK/runs_collect.pmtiles"
 else
   echo "runs_collect export failed or not present; skipping runs PMTiles"
 fi
-# For coverage buffer, favor a generous maxzoom for smooth fill
-tippecanoe -o "$WORK/coverage_buffer.pmtiles" -l coverage_buffer -zg "$WORK/coverage_buffer.geojson" --force
+# buffer (auto zoom)
+tippecanoe -o "$WORK/coverage_buffer.mbtiles" -l coverage_buffer -zg "$WORK/coverage_buffer.geojson" --force
+pmtiles convert "$WORK/coverage_buffer.mbtiles" "$WORK/coverage_buffer.pmtiles"
  
 # 5) Upload to Supabase Storage 'tiles' bucket
 echo "[5/6] Upload to Supabase Storage 'tiles' bucket"

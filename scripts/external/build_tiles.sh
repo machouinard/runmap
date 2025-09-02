@@ -32,13 +32,17 @@ ogr2ogr -f GeoJSON "$WORK/streets_unrun.geojson" "$CONN" -sql "SELECT gid,name,g
 ogr2ogr -f GeoJSON "$WORK/runs.geojson"         "$CONN" -sql "SELECT geom FROM runmap.runs_raw WHERE geom IS NOT NULL" -nln runs
 ogr2ogr -f GeoJSON "$WORK/buffer.geojson"       "$CONN" -sql "SELECT gid,geom FROM runmap.coverage_buffer_current" -nln coverage_buffer
 
-# 2) Build PMTiles
+# 2) Build MBTiles then convert to PMTiles
 # Keep detail at city zooms
-tippecanoe -o "$WORK/streets_unrun.pmtiles" -l streets_unrun -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/streets_unrun.geojson" --force
+# streets_unrun
+tippecanoe -o "$WORK/streets_unrun.mbtiles" -l streets_unrun -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/streets_unrun.geojson" --force
+pmtiles convert "$WORK/streets_unrun.mbtiles" "$WORK/streets_unrun.pmtiles"
 # runs
-tippecanoe -o "$WORK/runs_collect.pmtiles" -l runs_collect -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/runs.geojson" --force
-# buffer
-tippecanoe -o "$WORK/coverage_buffer.pmtiles" -l coverage_buffer -zg "$WORK/buffer.geojson" --force
+tippecanoe -o "$WORK/runs_collect.mbtiles" -l runs_collect -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/runs.geojson" --force
+pmtiles convert "$WORK/runs_collect.mbtiles" "$WORK/runs_collect.pmtiles"
+# buffer (auto zoom)
+tippecanoe -o "$WORK/coverage_buffer.mbtiles" -l coverage_buffer -zg "$WORK/buffer.geojson" --force
+pmtiles convert "$WORK/coverage_buffer.mbtiles" "$WORK/coverage_buffer.pmtiles"
 
 # 3) Upload
 curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/${DEST_UNRUN}" \
