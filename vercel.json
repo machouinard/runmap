@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "web/package.json", "use": "@vercel/static-build" }
+  ],
+  "framework": "vite",
+  "buildCommand": "pnpm install && pnpm build",
+  "outputDirectory": "web/dist"
+}
