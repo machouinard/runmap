@@ -6,6 +6,8 @@ import { Protocol, PMTiles } from 'pmtiles'
 const PM_TILES_URL_UNRUN = import.meta.env.VITE_PM_TILES_URL as string | undefined
 const PM_TILES_URL_RUNS = import.meta.env.VITE_PM_TILES_URL_RUNS as string | undefined
 const PM_TILES_URL_BUFFER = import.meta.env.VITE_PM_TILES_URL_BUFFER as string | undefined
+const TILES_VERSION = (import.meta.env.VITE_TILES_VERSION as string | undefined) || ''
+const withVersion = (url?: string) => (url ? (TILES_VERSION ? `${url}?v=${encodeURIComponent(TILES_VERSION)}` : url) : undefined)
 const COLOR_UNRUN = (import.meta.env.VITE_UNRUN as string) || '#e53935'
 const COLOR_RUNS = (import.meta.env.VITE_RUNS as string) || '#1e88e5'
 const COLOR_BUFFER = (import.meta.env.VITE_BUFFER as string) || '#7e57c2'
@@ -49,15 +51,15 @@ export default function App() {
     let pmRuns: PMTiles | null = null
     let pmBuffer: PMTiles | null = null
     if (PM_TILES_URL_UNRUN) {
-      pmUnrun = new PMTiles(PM_TILES_URL_UNRUN)
+      pmUnrun = new PMTiles(withVersion(PM_TILES_URL_UNRUN)!)
       protocol.add(pmUnrun)
     }
     if (PM_TILES_URL_RUNS) {
-      pmRuns = new PMTiles(PM_TILES_URL_RUNS)
+      pmRuns = new PMTiles(withVersion(PM_TILES_URL_RUNS)!)
       protocol.add(pmRuns)
     }
     if (PM_TILES_URL_BUFFER) {
-      pmBuffer = new PMTiles(PM_TILES_URL_BUFFER)
+      pmBuffer = new PMTiles(withVersion(PM_TILES_URL_BUFFER)!)
       protocol.add(pmBuffer)
     }
 
@@ -79,7 +81,7 @@ export default function App() {
     if (PM_TILES_URL_BUFFER) {
       style.sources.buffer = {
         type: 'vector',
-        url: 'pmtiles://' + PM_TILES_URL_BUFFER,
+        url: 'pmtiles://' + withVersion(PM_TILES_URL_BUFFER),
         attribution: 'Runmap',
       }
       style.layers.push({
@@ -93,7 +95,7 @@ export default function App() {
     if (PM_TILES_URL_UNRUN) {
       style.sources.unrun = {
         type: 'vector',
-        url: 'pmtiles://' + PM_TILES_URL_UNRUN,
+        url: 'pmtiles://' + withVersion(PM_TILES_URL_UNRUN),
         attribution: 'Runmap',
       }
       style.layers.push({
@@ -107,7 +109,7 @@ export default function App() {
     if (PM_TILES_URL_RUNS) {
       style.sources.runs = {
         type: 'vector',
-        url: 'pmtiles://' + PM_TILES_URL_RUNS,
+        url: 'pmtiles://' + withVersion(PM_TILES_URL_RUNS),
         attribution: 'Runmap',
       }
       style.layers.push({

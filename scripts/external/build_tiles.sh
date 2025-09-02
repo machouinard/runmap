@@ -63,7 +63,9 @@ curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/${DEST_BUFFER}" \
   -H "Content-Type: application/octet-stream" \
   --data-binary @"$WORK/coverage_buffer.pmtiles"
 
-# 4) Output URLs
-echo "unrun:  ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_UNRUN}"
-echo "runs:   ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_RUNS}"
-echo "buffer: ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_BUFFER}"
+# 4) Output URLs with version hint for cache-busting
+TILES_VERSION=${TILES_VERSION:-$(date -u +%Y%m%dT%H%MZ)}
+echo "unrun:  ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_UNRUN}?v=${TILES_VERSION}"
+echo "runs:   ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_RUNS}?v=${TILES_VERSION}"
+echo "buffer: ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_BUFFER}?v=${TILES_VERSION}"
+echo "hint: set VITE_TILES_VERSION=${TILES_VERSION} in web/.env.local to bust cache"
