@@ -62,7 +62,7 @@ export default function App() {
         if (j && typeof j.v === 'string' && j.v.length > 0) setTilesVersion(j.v)
       } catch { }
     }
-    loadVersion()
+    if (!TILES_VERSION_ENV) loadVersion()
 
     // Pre-register PMTiles archives (so we can read header/bounds easily)
     let pmUnrun: PMTiles | null = null
@@ -148,6 +148,10 @@ export default function App() {
     mapRef.current = map
 
     map.on('load', () => {
+      // Ensure map fills current viewport after initial paint
+      try { map.resize() } catch {}
+      setTimeout(() => { try { map.resize() } catch {} }, 200)
+
       // Fit to PMTiles bounds if present (prefer unrun, else runs, else buffer)
       const pm = pmUnrun || pmRuns || pmBuffer
       if (pm) {
@@ -194,10 +198,20 @@ export default function App() {
   const [isNarrow, setIsNarrow] = useState<boolean>(false)
   const [openLayers, setOpenLayers] = useState<boolean>(false)
   useEffect(() => {
-  const onResize = () => setIsNarrow(window.innerWidth <= 640)
-  onResize()
-  window.addEventListener('resize', onResize)
-  return () => window.removeEventListener('resize', onResize)
+    const onResize = () => {
+      setIsNarrow(window.innerWidth <= 640)
+      try {
+        // Ensure MapLibre tracks container size changes (orientation, URL bar collapse)
+        mapRef.current?.resize()
+      } catch {}
+    }
+    onResize()
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
   }, [])
   
   return (
