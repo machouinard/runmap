@@ -4,3 +4,10 @@
 /info
 /WorkOutDoors
 AGENTS.md
+venv/
+.venv/
+*.env
+web/.env.local
+web/node_modules/
+web/dist/
+scripts/external/systemd/*.env
