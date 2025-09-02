@@ -1,0 +1,19 @@
+# Systemd unit to build and upload PMTiles on the droplet
+
+[Unit]
+Description=RunMap tiles builder (PMTiles)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Update this path to your repo on the droplet
+WorkingDirectory=/opt/runmap
+# Reuse buffer env, but ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set there
+EnvironmentFile=/etc/runmap/runmap-buffer.env
+# Ensure tools are available in PATH; create/upgrade venv for Python if needed (not required here)
+ExecStart=/usr/bin/env bash -lc 'bash scripts/external/build_tiles.sh'
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

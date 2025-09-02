@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Simple exporter: refresh -> pull streets_unrun from Supabase -> build PMTiles -> upload to 'tiles' bucket.
+# Simple exporter: refresh -> pull layers from Supabase -> build PMTiles -> upload to 'tiles' bucket.
 # Requirements: ogr2ogr (GDAL), tippecanoe, curl
 # Configure via .env at repo root (auto-loaded) or environment variables:
 #   PGHOST, PGPORT=6543, PGDATABASE=postgres, PGUSER=postgres.<project-ref>, PGPASSWORD
 #   SUPABASE_URL=https://<ref>.supabase.co
 #   SUPABASE_SERVICE_ROLE_KEY=...  (for RPC + upload)
-#   DEST=streets_unrun.pmtiles
+#   DEST_UNRUN=streets_unrun.pmtiles (or legacy DEST)
+#   DEST_RUNS=runs_collect.pmtiles
+#   DEST_BUFFER=coverage_buffer.pmtiles
 #   TMPDIR (optional)
 
 # Auto-load .env from repo root (works regardless of current working directory)
@@ -27,35 +29,74 @@ fi
 : "${PGPASSWORD:?Set PGPASSWORD or add to .env}"
 : "${SUPABASE_URL:?Set SUPABASE_URL or add to .env}"
 : "${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY or add to .env}"
-DEST=${DEST:-streets_unrun.pmtiles}
+DEST_UNRUN=${DEST_UNRUN:-${DEST:-streets_unrun.pmtiles}}
+DEST_RUNS=${DEST_RUNS:-runs_collect.pmtiles}
+DEST_BUFFER=${DEST_BUFFER:-coverage_buffer.pmtiles}
 # Create a unique work dir and clean up on exit
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/runmap_export.XXXXXXXX")
 trap 'rm -rf "$WORK"' EXIT
-
+ 
 # 0) Refresh heavy layers using local helper to avoid HTTP timeout
 REFRESH_MODE=${REFRESH:-all}
 if [ "$REFRESH_MODE" != "none" ]; then
-  echo "[0/4] Refreshing materialized views ($REFRESH_MODE) via psql"
-  "${SCRIPT_DIR}/refresh_all.sh" "$REFRESH_MODE"
+  echo "[0/6] Refreshing materialized views ($REFRESH_MODE) via psql"
+ "${SCRIPT_DIR}/refresh_all.sh" "$REFRESH_MODE"
 fi
-
+ 
 # 1) Export streets_unrun → GeoJSON
-echo "[1/4] Export streets_unrun → GeoJSON"
+echo "[1/6] Export streets_unrun → GeoJSON"
 CONN="PG:host=${PGHOST} port=${PGPORT} dbname=${PGDATABASE} user=${PGUSER} password=${PGPASSWORD} sslmode=require target_session_attrs=read-write"
-ogr2ogr -f GeoJSON "$WORK/streets_unrun.geojson" "$CONN" -sql "SELECT street_id,name,geom FROM runmap.streets_unrun" -nln streets_unrun
+ogr2ogr -f GeoJSON "$WORK/streets_unrun.geojson" "$CONN" -sql "SELECT gid,name,geom FROM runmap.streets_unrun" -nln streets_unrun
+ 
+# 2) Export runs_collect → GeoJSON (if present)
+echo "[2/6] Export runs_collect → GeoJSON"
+set +e
+ogr2ogr -f GeoJSON "$WORK/runs_collect.geojson" "$CONN" -sql "SELECT geom FROM runmap.runs_raw WHERE geom IS NOT NULL" -nln runs_collect
+RUNS_STATUS=$?
+set -e
 
-# 2) Build PMTiles with tippecanoe
-echo "[2/4] Build PMTiles with tippecanoe"
-tippecanoe -o "$WORK/streets_unrun.pmtiles" -l streets_unrun -zg --drop-densest-as-needed "$WORK/streets_unrun.geojson" --force
-
-# 3) Upload to Supabase Storage 'tiles' bucket as $DEST
-echo "[3/4] Upload to Supabase Storage 'tiles' bucket as $DEST"
-curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/${DEST}" \
+# 3) Export coverage_buffer_current → GeoJSON
+echo "[3/6] Export coverage_buffer_current → GeoJSON"
+ogr2ogr -f GeoJSON "$WORK/coverage_buffer.geojson" "$CONN" -sql "SELECT gid,geom FROM runmap.coverage_buffer_current" -nln coverage_buffer
+ 
+# 4) Build PMTiles with tippecanoe
+echo "[4/6] Build PMTiles with tippecanoe"
+# Keep all features: do not drop densest; allow big tiles for fidelity on dense grids
+tippecanoe -o "$WORK/streets_unrun.pmtiles" -l streets_unrun -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/streets_unrun.geojson" --force
+if [ $RUNS_STATUS -eq 0 ]; then
+  tippecanoe -o "$WORK/runs_collect.pmtiles" -l runs_collect -Z 10 -z 16 --no-feature-limit --no-tile-size-limit --extend-zooms-if-still-dropping "$WORK/runs_collect.geojson" --force
+else
+  echo "runs_collect export failed or not present; skipping runs PMTiles"
+fi
+# For coverage buffer, favor a generous maxzoom for smooth fill
+tippecanoe -o "$WORK/coverage_buffer.pmtiles" -l coverage_buffer -zg "$WORK/coverage_buffer.geojson" --force
+ 
+# 5) Upload to Supabase Storage 'tiles' bucket
+echo "[5/6] Upload to Supabase Storage 'tiles' bucket"
+# unrun
+curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/${DEST_UNRUN}" \
   -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
   -H "x-upsert: true" \
   -H "Content-Type: application/octet-stream" \
   --data-binary @"$WORK/streets_unrun.pmtiles"
+# runs (optional)
+if [ -f "$WORK/runs_collect.pmtiles" ]; then
+  curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/${DEST_RUNS}" \
+    -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+    -H "x-upsert: true" \
+    -H "Content-Type: application/octet-stream" \
+    --data-binary @"$WORK/runs_collect.pmtiles"
+fi
+# buffer
+curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/${DEST_BUFFER}" \
+  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+  -H "x-upsert: true" \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary @"$WORK/coverage_buffer.pmtiles"
+ 
+# 6) Done
+echo "[6/6] Done. Public URLs (if bucket is public):"
+echo "unrun:   ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_UNRUN}"
+echo "runs:    ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_RUNS}"
+echo "buffer:  ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_BUFFER}"
 
-# 4) Done
-echo "[4/4] Done. Public URL (if bucket is public):"
-echo "${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST}"

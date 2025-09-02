@@ -1,0 +1,10 @@
+[Unit]
+Description=Schedule RunMap tiles builder
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+Unit=runmap-tiles.service
+
+[Install]
+WantedBy=timers.target
