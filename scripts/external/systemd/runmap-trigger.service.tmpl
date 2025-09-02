@@ -1,0 +1,14 @@
+[Unit]
+Description=RunMap trigger webhook (starts buffer service on POST /trigger)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/runmap
+EnvironmentFile=/etc/runmap/runmap-trigger.env
+ExecStart=/usr/bin/env python3 scripts/external/webhook/trigger_server.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
