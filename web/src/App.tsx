@@ -6,11 +6,10 @@ import { Protocol, PMTiles } from 'pmtiles'
 const PM_TILES_URL_UNRUN = import.meta.env.VITE_PM_TILES_URL as string | undefined
 const PM_TILES_URL_RUNS = import.meta.env.VITE_PM_TILES_URL_RUNS as string | undefined
 const PM_TILES_URL_BUFFER = import.meta.env.VITE_PM_TILES_URL_BUFFER as string | undefined
-const TILES_VERSION = (import.meta.env.VITE_TILES_VERSION as string | undefined) || ''
-const withVersion = (url?: string) => (url ? (TILES_VERSION ? `${url}?v=${encodeURIComponent(TILES_VERSION)}` : url) : undefined)
-const COLOR_UNRUN = (import.meta.env.VITE_UNRUN as string) || '#e53935'
-const COLOR_RUNS = (import.meta.env.VITE_RUNS as string) || '#1e88e5'
-const COLOR_BUFFER = (import.meta.env.VITE_BUFFER as string) || '#7e57c2'
+const TILES_VERSION_ENV = (import.meta.env.VITE_TILES_VERSION as string | undefined) || ''
+const COLOR_UNRUN = (import.meta.env.VITE_UNRUN as string) || '#B22222'
+const COLOR_RUNS = (import.meta.env.VITE_RUNS as string) || '#0e297cff'
+const COLOR_BUFFER = (import.meta.env.VITE_BUFFER as string) || '#006400'
 const SUPABASE_URL = import.meta.env.VITE_PUBLIC_SUPABASE_URL as string
 const ANON = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY as string
 
@@ -20,6 +19,8 @@ export default function App() {
   const [showUnrun, setShowUnrun] = useState<boolean>(!!PM_TILES_URL_UNRUN)
   const [showRuns, setShowRuns] = useState<boolean>(!!PM_TILES_URL_RUNS)
   const [showBuffer, setShowBuffer] = useState<boolean>(!!PM_TILES_URL_BUFFER)
+  const [tilesVersion, setTilesVersion] = useState<string>(TILES_VERSION_ENV)
+  const withVersion = (url?: string) => (url ? (tilesVersion ? `${url}?v=${encodeURIComponent(tilesVersion)}` : url) : undefined)
 
   useEffect(() => {
     // Fetch public stats
@@ -45,6 +46,23 @@ export default function App() {
   useEffect(() => {
     const protocol = new Protocol()
     maplibregl.addProtocol('pmtiles', protocol.tile)
+
+    // Try to read dynamic tiles version from version.json in the tiles folder
+    const loadVersion = async () => {
+      try {
+        const pick = PM_TILES_URL_UNRUN || PM_TILES_URL_BUFFER || PM_TILES_URL_RUNS
+        if (!pick) return
+        const u = new URL(pick)
+        // strip filename
+        u.pathname = u.pathname.replace(/\/[^\/?#]+$/, '/version.json')
+        u.search = ''
+        const res = await fetch(u.toString(), { cache: 'no-cache' })
+        if (!res.ok) return
+        const j = await res.json()
+        if (j && typeof j.v === 'string' && j.v.length > 0) setTilesVersion(j.v)
+      } catch { }
+    }
+    loadVersion()
 
     // Pre-register PMTiles archives (so we can read header/bounds easily)
     let pmUnrun: PMTiles | null = null
@@ -170,12 +188,12 @@ export default function App() {
   }, [showUnrun, showRuns, showBuffer])
 
   const prettyKm = (m?: number) => (m ? (m / 1000).toFixed(1) : '—')
-   const prettyMi = (m?: number) => (m ? (m * 0.000621371).toFixed(1) : '—')
-  
+  const prettyMi = (m?: number) => (m ? (m * 0.000621371).toFixed(1) : '—')
+
   return (
-  <div style={{ height: '100%' }}>
-  <div id="map" style={{ height: '100%' }} />
-       <div
+    <div style={{ height: '100%' }}>
+      <div id="map" style={{ height: '100%' }} />
+      <div
         id="panel"
         style={{
           position: 'absolute',

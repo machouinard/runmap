@@ -63,6 +63,14 @@ curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/${DEST_BUFFER}" \
   -H "Content-Type: application/octet-stream" \
   --data-binary @"$WORK/coverage_buffer.pmtiles"
 
+# version.json for cache-busting
+printf '{"v":"%s"}' "$TILES_VERSION" > "$WORK/version.json"
+curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/version.json" \
+  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+  -H "x-upsert: true" \
+  -H "Content-Type: application/json" \
+  --data-binary @"$WORK/version.json"
+
 # 4) Output URLs with version hint for cache-busting
 TILES_VERSION=${TILES_VERSION:-$(date -u +%Y%m%dT%H%MZ)}
 echo "unrun:  ${SUPABASE_URL}/storage/v1/object/public/tiles/${DEST_UNRUN}?v=${TILES_VERSION}"

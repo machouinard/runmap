@@ -98,6 +98,14 @@ curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/${DEST_BUFFER}" \
   -H "x-upsert: true" \
   -H "Content-Type: application/octet-stream" \
   --data-binary @"$WORK/coverage_buffer.pmtiles"
+
+# version.json for cache-busting
+printf '{"v":"%s"}' "$TILES_VERSION" > "$WORK/version.json"
+curl -sS -X POST "${SUPABASE_URL}/storage/v1/object/tiles/version.json" \
+  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+  -H "x-upsert: true" \
+  -H "Content-Type: application/json" \
+  --data-binary @"$WORK/version.json"
  
 # 6) Done
 echo "[6/6] Done. Public URLs (if bucket is public):"
