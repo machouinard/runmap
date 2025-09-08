@@ -62,7 +62,7 @@ export default function App() {
         if (j && typeof j.v === 'string' && j.v.length > 0) setTilesVersion(j.v)
       } catch { }
     }
-    loadVersion()
+    if (!TILES_VERSION_ENV) loadVersion()
 
     // Pre-register PMTiles archives (so we can read header/bounds easily)
     let pmUnrun: PMTiles | null = null
@@ -148,6 +148,10 @@ export default function App() {
     mapRef.current = map
 
     map.on('load', () => {
+      // Ensure map fills current viewport after initial paint
+      try { map.resize() } catch { }
+      setTimeout(() => { try { map.resize() } catch { } }, 200)
+
       // Fit to PMTiles bounds if present (prefer unrun, else runs, else buffer)
       const pm = pmUnrun || pmRuns || pmBuffer
       if (pm) {
@@ -194,77 +198,87 @@ export default function App() {
   const [isNarrow, setIsNarrow] = useState<boolean>(false)
   const [openLayers, setOpenLayers] = useState<boolean>(false)
   useEffect(() => {
-  const onResize = () => setIsNarrow(window.innerWidth <= 640)
-  onResize()
-  window.addEventListener('resize', onResize)
-  return () => window.removeEventListener('resize', onResize)
+    const onResize = () => {
+      setIsNarrow(window.innerWidth <= 640)
+      try {
+        // Ensure MapLibre tracks container size changes (orientation, URL bar collapse)
+        mapRef.current?.resize()
+      } catch { }
+    }
+    onResize()
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
   }, [])
-  
+
   return (
-  <div style={{ height: '100%' }}>
-  <div id="map" style={{ height: '100%' }} />
+    <div style={{ height: '100%' }}>
+      <div id="map" style={{ height: '100%' }} />
 
-  {/* Bottom stats bar */}
-  {stats && (
-  <div
-  style={{
-  position: 'absolute', left: 12, right: 12, top: 12,
-  display: 'flex', gap: 8, alignItems: 'stretch', justifyContent: 'space-between',
-  padding: '8px 10px', borderRadius: 12,
-  background: 'rgba(255,255,255,0.94)', boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
-  border: '1px solid rgba(0,0,0,0.08)', fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-  fontSize: isNarrow ? 13 : 12, backdropFilter: 'saturate(180%) blur(6px)'
-  }}
-  >
-      <div style={{ display: 'grid', minWidth: 92 }}>
-        <div style={{ opacity: 0.75 }}>Coverage</div>
-      <div style={{ fontWeight: 700 }}>{stats.pct.toFixed(1)}%</div>
-    </div>
-  <div style={{ display: 'grid', minWidth: 120, textAlign: 'right' }}>
-    <div style={{ opacity: 0.75 }}>Covered</div>
-    <div>{prettyMi(stats.covered_m)} mi <span style={{ opacity: 0.6 }}>({prettyKm(stats.covered_m)} km)</span></div>
-  </div>
-  <div style={{ display: 'grid', minWidth: 120, textAlign: 'right' }}>
-    <div style={{ opacity: 0.75 }}>Total</div>
-    <div>{prettyMi(stats.total_m)} mi <span style={{ opacity: 0.6 }}>({prettyKm(stats.total_m)} km)</span></div>
-  </div>
-  </div>
-  )}
+      {/* Bottom stats bar */}
+      {stats && false && (
+        <div
+          style={{
+            position: 'absolute', left: 12, right: 12, top: 12,
+            display: 'flex', gap: 8, alignItems: 'stretch', justifyContent: 'space-between',
+            padding: '8px 10px', borderRadius: 12,
+            background: 'rgba(255,255,255,0.94)', boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
+            border: '1px solid rgba(0,0,0,0.08)', fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+            fontSize: isNarrow ? 13 : 12, backdropFilter: 'saturate(180%) blur(6px)'
+          }}
+        >
+          <div style={{ display: 'grid', minWidth: 92 }}>
+            <div style={{ opacity: 0.75 }}>Coverage</div>
+            <div style={{ fontWeight: 700 }}>{stats.pct.toFixed(1)}%</div>
+          </div>
+          <div style={{ display: 'grid', minWidth: 120, textAlign: 'right' }}>
+            <div style={{ opacity: 0.75 }}>Covered</div>
+            <div>{prettyMi(stats.covered_m)} mi <span style={{ opacity: 0.6 }}>({prettyKm(stats.covered_m)} km)</span></div>
+          </div>
+          <div style={{ display: 'grid', minWidth: 120, textAlign: 'right' }}>
+            <div style={{ opacity: 0.75 }}>Total</div>
+            <div>{prettyMi(stats.total_m)} mi <span style={{ opacity: 0.6 }}>({prettyKm(stats.total_m)} km)</span></div>
+          </div>
+        </div>
+      )}
 
-  {/* Floating Layers button bottom-left */}
-  <button
-    onClick={() => setOpenLayers(true)} aria-label="Layers"
-        style={{ position: 'absolute', left: 12, bottom: 12, padding: '10px 12px', borderRadius: 999, border: '1px solid rgba(0,0,0,0.12)', background: '#fff', boxShadow: '0 4px 10px rgba(0,0,0,0.08)', fontSize: 12 }}
+      {/* Floating Layers button bottom-left */}
+      <button
+        onClick={() => setOpenLayers(true)} aria-label="Layers"
+        style={{ position: 'absolute', left: 12, bottom: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.12)', color: '#fff', background: '#26197aff', boxShadow: '0 4px 10px rgba(0,0,0,0.08)', fontSize: 24 }}
       >Layers</button>
 
-  {/* Layers popover */}
-  {openLayers && (
-  <>
-  <div onClick={() => setOpenLayers(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.25)' }} />
-  <div role="dialog" aria-modal="true"
-  style={{ position: 'absolute', left: '50%', top: isNarrow ? 64 : 100, transform: 'translateX(-50%)', width: 'min(92%, 360px)', background: '#fff', borderRadius: 12, boxShadow: '0 16px 32px rgba(0,0,0,0.24)', border: '1px solid rgba(0,0,0,0.08)', padding: 14, fontFamily: 'Inter, system-ui, -apple-system, sans-serif', fontSize: isNarrow ? 14 : 13 }}
-  >
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-    <div style={{ fontWeight: 700 }}>Layers</div>
-      <button onClick={() => setOpenLayers(false)} aria-label="Close" style={{ background: 'transparent', border: 0, fontSize: 16 }}>✕</button>
-      </div>
-      <div style={{ display: 'grid', rowGap: 8 }}>
-      <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <input style={{ width: 18, height: 18 }} type="checkbox" checked={showUnrun} onChange={e => setShowUnrun(e.target.checked)} disabled={!PM_TILES_URL_UNRUN} />
-      Needed (red)
-    </label>
-    <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <input style={{ width: 18, height: 18 }} type="checkbox" checked={showRuns} onChange={e => setShowRuns(e.target.checked)} disabled={!PM_TILES_URL_RUNS} />
-          Done (blue)
-        </label>
-      <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-      <input style={{ width: 18, height: 18 }} type="checkbox" checked={showBuffer} onChange={e => setShowBuffer(e.target.checked)} disabled={!PM_TILES_URL_BUFFER} />
-      Coverage (purple)
-  </label>
-  </div>
-  </div>
-  </>
-  )}
-  </div>
+      {/* Layers popover */}
+      {openLayers && (
+        <>
+          <div onClick={() => setOpenLayers(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.25)' }} />
+          <div role="dialog" aria-modal="true"
+            style={{ position: 'absolute', left: '50%', top: isNarrow ? 64 : 100, transform: 'translateX(-50%)', width: 'min(92%, 360px)', background: '#fff', borderRadius: 12, boxShadow: '0 16px 32px rgba(0,0,0,0.24)', border: '1px solid rgba(0,0,0,0.08)', padding: 14, fontFamily: 'Inter, system-ui, -apple-system, sans-serif', fontSize: isNarrow ? 14 : 13 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 700 }}>Layers</div>
+              <button onClick={() => setOpenLayers(false)} aria-label="Close" style={{ background: 'transparent', border: 0, fontSize: 16 }}>✕</button>
+            </div>
+            <div style={{ display: 'grid', rowGap: 8 }}>
+              <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input style={{ width: 18, height: 18 }} type="checkbox" checked={showUnrun} onChange={e => setShowUnrun(e.target.checked)} disabled={!PM_TILES_URL_UNRUN} />
+                Needed (red)
+              </label>
+              <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input style={{ width: 18, height: 18 }} type="checkbox" checked={showRuns} onChange={e => setShowRuns(e.target.checked)} disabled={!PM_TILES_URL_RUNS} />
+                Done (blue)
+              </label>
+              <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input style={{ width: 18, height: 18 }} type="checkbox" checked={showBuffer} onChange={e => setShowBuffer(e.target.checked)} disabled={!PM_TILES_URL_BUFFER} />
+                Coverage (purple)
+              </label>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
