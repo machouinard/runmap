@@ -16,9 +16,33 @@ const ANON = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY as string
 export default function App() {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [stats, setStats] = useState<{ total_m: number; covered_m: number; pct: number } | null>(null)
-  const [showUnrun, setShowUnrun] = useState<boolean>(!!PM_TILES_URL_UNRUN)
-  const [showRuns, setShowRuns] = useState<boolean>(!!PM_TILES_URL_RUNS)
-  const [showBuffer, setShowBuffer] = useState<boolean>(!!PM_TILES_URL_BUFFER)
+  // Initial visibility from ?run=1&unrun=1&buffer=1 (defaults to enabled when URL is configured)
+  const parseFlag = (v: string | null, def: boolean) => {
+    if (v == null) return def
+    const s = v.toLowerCase()
+    return s === '1' || s === 'true' || s === 'on' || s === 'yes'
+  }
+  const computeInitialVisibility = () => {
+    const defaults = {
+      unrun: !!PM_TILES_URL_UNRUN,
+      run: !!PM_TILES_URL_RUNS,
+      buffer: !!PM_TILES_URL_BUFFER,
+    }
+    try {
+      const p = new URLSearchParams(window.location.search)
+      return {
+        unrun: !!PM_TILES_URL_UNRUN && parseFlag(p.get('unrun'), defaults.unrun),
+        run: !!PM_TILES_URL_RUNS && parseFlag(p.get('run'), defaults.run),
+        buffer: !!PM_TILES_URL_BUFFER && parseFlag(p.get('buffer'), defaults.buffer),
+      }
+    } catch {
+      return defaults
+    }
+  }
+  const initialVis = computeInitialVisibility()
+  const [showUnrun, setShowUnrun] = useState<boolean>(initialVis.unrun)
+  const [showRuns, setShowRuns] = useState<boolean>(initialVis.run)
+  const [showBuffer, setShowBuffer] = useState<boolean>(initialVis.buffer)
   const [tilesVersion, setTilesVersion] = useState<string>(TILES_VERSION_ENV)
   const withVersion = (url?: string) => (url ? (tilesVersion ? `${url}?v=${encodeURIComponent(tilesVersion)}` : url) : undefined)
 
@@ -191,6 +215,19 @@ export default function App() {
     setVis('buffer-fill', showBuffer)
   }, [showUnrun, showRuns, showBuffer])
 
+  // Sync current visibility to URL flags (?run=1&unrun=1&buffer=1) without reload
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      params.set('run', showRuns ? '1' : '0')
+      params.set('unrun', showUnrun ? '1' : '0')
+      params.set('buffer', showBuffer ? '1' : '0')
+      const q = params.toString()
+      const newUrl = `${window.location.pathname}${q ? `?${q}` : ''}${window.location.hash}`
+      window.history.replaceState(null, '', newUrl)
+    } catch { }
+  }, [showUnrun, showRuns, showBuffer])
+
   const prettyKm = (m?: number) => (m ? (m / 1000).toFixed(1) : '—')
   const prettyMi = (m?: number) => (m ? (m * 0.000621371).toFixed(1) : '—')
 
@@ -273,7 +310,7 @@ export default function App() {
               </label>
               <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <input style={{ width: 18, height: 18 }} type="checkbox" checked={showBuffer} onChange={e => setShowBuffer(e.target.checked)} disabled={!PM_TILES_URL_BUFFER} />
-                Coverage (purple)
+                Coverage (green)
               </label>
             </div>
           </div>
