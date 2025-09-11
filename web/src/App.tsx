@@ -310,7 +310,7 @@ export default function App() {
               </label>
               <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <input style={{ width: 18, height: 18 }} type="checkbox" checked={showRuns} onChange={e => setShowRuns(e.target.checked)} disabled={!PM_TILES_URL_RUNS} />
-                Done (blue)
+                Done (bright green)
               </label>
               <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <input style={{ width: 18, height: 18 }} type="checkbox" checked={showBuffer} onChange={e => setShowBuffer(e.target.checked)} disabled={!PM_TILES_URL_BUFFER} />
