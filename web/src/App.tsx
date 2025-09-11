@@ -8,10 +8,13 @@ const PM_TILES_URL_RUNS = import.meta.env.VITE_PM_TILES_URL_RUNS as string | und
 const PM_TILES_URL_BUFFER = import.meta.env.VITE_PM_TILES_URL_BUFFER as string | undefined
 const TILES_VERSION_ENV = (import.meta.env.VITE_TILES_VERSION as string | undefined) || ''
 const COLOR_UNRUN = (import.meta.env.VITE_UNRUN as string) || '#B22222'
-const COLOR_RUNS = (import.meta.env.VITE_RUNS as string) || '#0e297cff'
-const COLOR_BUFFER = (import.meta.env.VITE_BUFFER as string) || '#006400'
+// const COLOR_RUNS = (import.meta.env.VITE_RUNS as string) || '#0e297cff'
+const COLOR_RUNS = (import.meta.env.VITE_RUNS as string) || '#1A9E4C'
+const COLOR_BUFFER = (import.meta.env.VITE_BUFFER as string) || '#1F9A4E'
+// const COLOR_BUFFER = (import.meta.env.VITE_BUFFER as string) || '#006400'
 const SUPABASE_URL = import.meta.env.VITE_PUBLIC_SUPABASE_URL as string
 const ANON = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY as string
+const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY as string
 
 export default function App() {
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -24,7 +27,7 @@ export default function App() {
   }
   const computeInitialVisibility = () => {
     const defaults = {
-      unrun: !!PM_TILES_URL_UNRUN,
+      unrun: 0,
       run: !!PM_TILES_URL_RUNS,
       buffer: !!PM_TILES_URL_BUFFER,
     }
@@ -108,14 +111,15 @@ export default function App() {
     const style: any = {
       version: 8,
       sources: {
-        osm: {
+        satellite: {
           type: 'raster',
-          tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          // tiles: [`https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=${MAPTILER_KEY}`],
+          tiles: ['https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=JxYIXYYsMJDhbpq83ADA#1.0/0.00000/0.00000'],
           tileSize: 256,
-          attribution: '© OpenStreetMap contributors',
+          attribution: '© MapTiler © OpenStreetMap contributors',
         },
       },
-      layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+      layers: [{ id: 'satellite', type: 'raster', source: 'satellite' }],
     }
 
     // Add vector sources via pmtiles urls (TileJSON) if configured
