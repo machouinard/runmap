@@ -1,0 +1,83 @@
+#!/bin/bash
+# Rebuild coverage table with correct geometry type
+
+set -e
+
+DB_HOST=${DB_HOST:-192.168.68.25}
+DB_USER=${DB_USER:-runmap_user}
+DB_NAME=${DB_NAME:-runmap}
+export PGPASSWORD=${PGPASSWORD:-fucker}
+
+echo "======================================"
+echo "Rebuild Coverage Table"
+echo "======================================"
+echo ""
+echo "This will:"
+echo "  1. Drop chunk_coverage_32610 table"
+echo "  2. Recreate with geometry(Geometry, 32610)"
+echo ""
+read -p "Continue? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Cancelled."
+    exit 1
+fi
+
+echo ""
+echo "Step 1: Dropping table and views..."
+psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" << 'EOF'
+-- Drop dependent materialized view first
+DROP MATERIALIZED VIEW IF EXISTS runmap.coverage_stats_chunks CASCADE;
+
+-- Drop dependent views
+DROP VIEW IF EXISTS runmap.chunks_unrun CASCADE;
+DROP VIEW IF EXISTS runmap.chunks_partial CASCADE;
+DROP VIEW IF EXISTS runmap.chunks_complete CASCADE;
+DROP VIEW IF EXISTS runmap.coverage_summary CASCADE;
+DROP VIEW IF EXISTS runmap.street_coverage_aggregated CASCADE;
+DROP VIEW IF EXISTS runmap.streets_most_complete CASCADE;
+DROP VIEW IF EXISTS runmap.streets_least_complete CASCADE;
+
+-- Drop the table
+DROP TABLE IF EXISTS runmap.chunk_coverage_32610 CASCADE;
+EOF
+
+echo ""
+echo "Step 2: Recreating table..."
+psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" << 'EOF'
+-- Create table with correct geometry type
+CREATE TABLE runmap.chunk_coverage_32610 (
+  chunk_id INT PRIMARY KEY REFERENCES runmap.streets_chunks_32610(chunk_id),
+  covered_geom geometry(Geometry, 32610),
+  covered_length_m FLOAT,
+  total_length_m FLOAT,
+  coverage_pct FLOAT GENERATED ALWAYS AS (
+    CASE
+      WHEN total_length_m > 0 THEN ROUND((covered_length_m / total_length_m * 100)::numeric, 2)
+      ELSE 0
+    END
+  ) STORED,
+  status TEXT GENERATED ALWAYS AS (
+    CASE
+      WHEN covered_length_m < total_length_m * 0.05 THEN 'unrun'
+      WHEN covered_length_m < total_length_m * 0.90 THEN 'partial'
+      ELSE 'complete'
+    END
+  ) STORED
+);
+
+CREATE INDEX idx_chunk_coverage_geom ON runmap.chunk_coverage_32610 USING GIST(covered_geom);
+CREATE INDEX idx_chunk_coverage_status ON runmap.chunk_coverage_32610(status);
+EOF
+
+echo ""
+echo "Step 3: Recreating views..."
+psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f /Volumes/RunMap/db/06_phase3_coverage_tracking.sql > /dev/null
+
+echo ""
+echo "======================================"
+echo "Table rebuilt successfully!"
+echo "======================================"
+echo ""
+echo "Verify with: bash scripts/check_coverage_table.sh"
+echo "Then test with: bash scripts/test_single_run.sh"

@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+#Linux
+.recycle/
+
+# Logs
+*.log
+
+# Large files
+*.zip
+
+# Tiles (generated, not source)
+/tiles/*.pmtiles
+
+# GPX uploads (optional - comment out if you want to track them)
+/gpx/*.gpx
+
+# Temporary files
+/tmp/
+
+# Environment files with credentials (NEVER COMMIT THESE)
+/.env
+/.env.local
+/.env.production
+/.env.staging
+/api/.env
+/api/.env.local
+/api/.env.production
+/api/.env.staging
+
+# Only track example templates (no real credentials)
+!.env.example
+!api/.env.example
+
+# Claude settings (contains credentials and IPs)
+/.claude/settings.local.json
+/.claude/settings.json
+
+# Large data files (download separately)
+*.osm.pbf
+*.osm
+qgis/
+aoi_processing/
+workout-routes.zip
+
+# Cleanup/migration scripts (not needed in public repo)
+sanitize_for_public.sh
+remove_env_from_tracking.sh
+clean_git_history.sh
+remove_large_files.sh
+remove_remaining_large_files.sh
+fix_hardcoded_passwords.sh
+fix_passwords_v2.sh
+
+# Project-specific
+/private
+/WorkOutDoors
+scripts/external/systemd/*.env
+data/
+backup/
+web/build/

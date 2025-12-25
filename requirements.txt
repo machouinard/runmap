@@ -1,0 +1,17 @@
+# Python dependencies for RunMap
+
+# GPX parsing (for activity type detection)
+gpxpy==1.6.2
+
+# Database
+psycopg2-binary==2.9.9
+
+# AWS/R2 (S3-compatible)
+boto3==1.34.34
+
+# API (Flask)
+Flask==3.0.0
+Flask-CORS==4.0.0
+
+# Utilities
+python-dotenv==1.0.0

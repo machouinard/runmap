@@ -1,0 +1,58 @@
+/* MapLibre GL Draw styles - must be before @tailwind */
+@import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* web/src/index.css — AFTER @tailwind utilities */
+@layer utilities {
+	.bg-runs {
+		background-color: theme('colors.runs') !important;
+	}
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+		sans-serif;
+}
+
+#root {
+	width: 100%;
+	height: 100vh;
+}
+
+/* Minimize MapLibre attribution control */
+.maplibregl-ctrl-attrib,
+.mapboxgl-ctrl-attrib {
+	opacity: 0.5;
+	font-size: 10px;
+	background-color: rgba(255, 255, 255, 0.8) !important;
+	padding: 0 5px !important;
+}
+
+.maplibregl-ctrl-attrib:hover,
+.mapboxgl-ctrl-attrib:hover {
+	opacity: 1;
+}
+
+/* Make attribution button smaller */
+.maplibregl-ctrl-attrib-button,
+.mapboxgl-ctrl-attrib-button {
+	width: 20px !important;
+	height: 20px !important;
+	font-size: 12px !important;
+}
+
+/* Compact attribution when expanded */
+.maplibregl-ctrl-attrib.maplibregl-compact,
+.mapboxgl-ctrl-attrib.mapboxgl-compact {
+	min-height: 20px !important;
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact-show,
+.mapboxgl-ctrl-attrib.mapboxgl-compact-show {
+	padding: 2px 24px 2px 4px !important;
+}
